@@ -2,11 +2,6 @@ package gb
 
 import "errors"
 
-const (
-	Write = iota
-	Read  = iota
-)
-
 type MMU struct {
 	ROM  [0x8000]byte
 	VRAM [0x2000]byte

@@ -90,9 +90,5 @@ func (cpu *CPU) Step() int {
 		return 0
 	}
 
-	cpu.PC++
-
-	op := cpu.bus.Read(cpu.PC)
-
-	return cpu.Exec(op)
+	return cpu.Exec(cpu.fetchu8())
 }

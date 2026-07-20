@@ -1,6 +1,9 @@
 package gb
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 var OpcodeCycles = []int{
 	1, 3, 2, 2, 1, 1, 2, 1, 5, 2, 2, 2, 1, 1, 2, 1, // 0
@@ -238,12 +241,6 @@ func (cpu *CPU) LoadROM(data []byte) error {
 }
 
 func (cpu *CPU) GetCartName() string {
-	title := ""
-	for i := uint16(0x134); i < 0x142; i++ {
-		chr := cpu.bus.Read(i)
-		if chr != 0x00 {
-			title += string(chr)
-		}
-	}
-	return title
+	rawTitle := string(cpu.bus.ROM[0x134:0x142])
+	return strings.Trim(rawTitle, "\x00")
 }

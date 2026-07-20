@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-var OpcodeCycles = []int{
+var OpCycles = []int{
 	1, 3, 2, 2, 1, 1, 2, 1, 5, 2, 2, 2, 1, 1, 2, 1, // 0
 	0, 3, 2, 2, 1, 1, 2, 1, 3, 2, 2, 2, 1, 1, 2, 1, // 1
 	2, 3, 2, 2, 1, 1, 2, 1, 2, 2, 2, 2, 1, 1, 2, 1, // 2
@@ -32,6 +32,8 @@ type CPU struct {
 	PC uint16
 
 	halted bool
+
+	debug bool
 }
 
 var (
@@ -73,6 +75,7 @@ func (c *CPU) fetchu16() uint16 {
 	return (hi << 8) | lo
 }
 
+// Reference: https://www.pastraiser.com/cpu/gameboy/gameboy_opcodes.html
 var instructions = [0x100]func(*CPU){
 	// 0x0x
 	0x00: func(c *CPU) {},                             // NOP
@@ -209,14 +212,11 @@ var instructions = [0x100]func(*CPU){
 }
 
 func (cpu *CPU) Exec(op byte) int {
-	// Reference: https://www.pastraiser.com/cpu/gameboy/gameboy_opcodes.html
-	// Execute `op` and ret num cpu cycles
-	inst := instructions[op]
-	if inst == nil {
-		panic(fmt.Sprintf("Unhandled op code: 0x%x\n", op))
+	instructions[op](cpu)
+	if cpu.debug {
+		fmt.Printf("[*] PC = 0x%04X, OP = 0x%02X\033[0m\n", cpu.PC, op)
 	}
-	inst(cpu)
-	return OpcodeCycles[op]
+	return OpCycles[op]
 }
 
 func (cpu *CPU) Step() int {
@@ -227,12 +227,12 @@ func (cpu *CPU) Step() int {
 	return cpu.Exec(cpu.fetchu8())
 }
 
-func (cpu *CPU) Start() {
-	cpu.halted = false
+func (cpu *CPU) Play() {
+	cpu.halted = !cpu.halted
 }
 
-func (cpu *CPU) Stop() {
-	cpu.halted = true
+func (cpu *CPU) Debug() {
+	cpu.debug = !cpu.debug
 }
 
 // Not a permanent place for these, just need to expose them for main.go testing
@@ -243,4 +243,14 @@ func (cpu *CPU) LoadROM(data []byte) error {
 func (cpu *CPU) GetCartName() string {
 	rawTitle := string(cpu.bus.ROM[0x134:0x142])
 	return strings.Trim(rawTitle, "\x00")
+}
+
+func InitCPUInstructions() {
+	for k, v := range instructions {
+		if v == nil {
+			instructions[k] = func(*CPU) {
+				fmt.Printf("\033[31;1;4m")
+			}
+		}
+	}
 }

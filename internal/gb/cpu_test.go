@@ -5,7 +5,6 @@ import (
 	"unsafe"
 )
 
-// mockMMU allows feeding raw bytecode directly into memory for testing.
 type mockMMU struct {
 	memory [0x10000]byte
 }
@@ -14,7 +13,7 @@ func (m *mockMMU) Read(addr uint16) byte {
 	return m.memory[addr]
 }
 
-func TestCPU_Opcodes(t *testing.T) {
+func TestCPUOps(t *testing.T) {
 	tests := []struct {
 		name        string
 		bytecode    []byte

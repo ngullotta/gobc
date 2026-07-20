@@ -92,3 +92,27 @@ func (cpu *CPU) Step() int {
 
 	return cpu.Exec(cpu.fetchu8())
 }
+
+func (cpu *CPU) Start() {
+	cpu.halted = false
+}
+
+func (cpu *CPU) Stop() {
+	cpu.halted = true
+}
+
+// Not a permanent place for these, just need to expose them for main.go testing
+func (cpu *CPU) LoadROM(data []byte) error {
+	return cpu.bus.LoadROM(data)
+}
+
+func (cpu *CPU) GetCartName() string {
+	title := ""
+	for i := uint16(0x134); i < 0x142; i++ {
+		chr := cpu.bus.Read(i)
+		if chr != 0x00 {
+			title += string(chr)
+		}
+	}
+	return title
+}

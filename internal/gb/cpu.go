@@ -2,6 +2,7 @@ package gb
 
 type CPU struct {
 	registers Registers
+	bus       *MMU
 
 	SP uint16
 	PC uint16
@@ -29,6 +30,7 @@ var (
 func NewCPU() *CPU {
 	return &CPU{
 		registers: DMG,
+		bus:       &MMU{},
 		SP:        0xFFFE,
 		PC:        0x0100,
 		halted:    true,

@@ -75,13 +75,100 @@ func (c *CPU) fetchu16() uint16 {
 	return (hi << 8) | lo
 }
 
+// Flag accessors (Z, N, H, C)
+func (c *CPU) getZ() bool { return c.regs.F&0x80 != 0 }
+func (c *CPU) getN() bool { return c.regs.F&0x40 != 0 }
+func (c *CPU) getH() bool { return c.regs.F&0x20 != 0 }
+func (c *CPU) getC() bool { return c.regs.F&0x10 != 0 }
+
+func (c *CPU) flagZ(b bool) {
+	if b {
+		c.regs.F |= 0x80
+	} else {
+		c.regs.F &= ^byte(0x80)
+	}
+}
+
+func (c *CPU) flagN(b bool) {
+	if b {
+		c.regs.F |= 0x40
+	} else {
+		c.regs.F &= ^byte(0x40)
+	}
+}
+
+func (c *CPU) flagH(b bool) {
+	if b {
+		c.regs.F |= 0x20
+	} else {
+		c.regs.F &= ^byte(0x20)
+	}
+}
+
+func (c *CPU) flagC(b bool) {
+	if b {
+		c.regs.F |= 0x10
+	} else {
+		c.regs.F &= ^byte(0x10)
+	}
+}
+
+func (c *CPU) inc8(val byte) byte {
+	res := val + 1
+	c.flagZ(res == 0)
+	c.flagN(false)
+	c.flagH(val&0xF == 0xF)
+	return res
+}
+
+func (c *CPU) dec8(val byte) byte {
+	res := val - 1
+	c.flagZ(res == 0)
+	c.flagN(true)
+	c.flagH(val&0xF == 0)
+	return res
+}
+
+func (c *CPU) addHL(val uint16) {
+	hl := c.regs.GetHL()
+	res := uint32(hl) + uint32(val)
+	c.flagN(false)
+	c.flagH((hl&0xFFF)+(val&0xFFF) > 0xFFF)
+	c.flagC(res > 0xFFFF)
+	c.regs.SetDE(uint16(res))
+}
+
 // Reference: https://www.pastraiser.com/cpu/gameboy/gameboy_opcodes.html
 var instructions = [0x100]func(*CPU){
-	// 0x0x
-	0x00: func(c *CPU) {},                             // NOP
-	0x01: func(c *CPU) { c.regs.SetBC(c.fetchu16()) }, // LD BC, d16
-	0x06: func(c *CPU) { c.regs.B = c.fetchu8() },     // LD B, d8
-	0x0E: func(c *CPU) { c.regs.C = c.fetchu8() },     // LD C, d8
+	// 0x00 => 0x0F
+	0x00: func(c *CPU) {},                                        // NOP
+	0x01: func(c *CPU) { c.regs.SetBC(c.fetchu16()) },            // LD BC, d16
+	0x02: func(c *CPU) { c.bus.Write(c.regs.GetBC(), c.regs.A) }, // LD (BC), A
+	0x03: func(c *CPU) { c.regs.SetBC(c.regs.GetBC() + 1) },      // INC BC
+	0x04: func(c *CPU) { c.regs.B = c.inc8(c.regs.B) },           // INC B
+	0x05: func(c *CPU) { c.regs.B = c.dec8(c.regs.B) },           // DEC B
+	0x06: func(c *CPU) { c.regs.B = c.fetchu8() },                // LD B, d8
+	0x07: func(c *CPU) {
+		c.flagC(c.regs.A&0x80 != 0)
+		c.regs.A = (c.regs.A << 1) | (c.regs.A >> 7)
+		c.flagZ(false)
+		c.flagN(false)
+		c.flagH(false)
+	}, // RLCA
+	0x08: func(c *CPU) { addr := c.fetchu16(); c.bus.Write(addr, byte(c.SP)); c.bus.Write(addr+1, byte(c.SP>>8)) }, // LD (a16), SP
+	0x09: func(c *CPU) { c.addHL(c.regs.GetBC()) },                                                                 // ADD HL, BC
+	0x0A: func(c *CPU) { c.regs.A = c.bus.Read(c.regs.GetBC()) },                                                   // LD A, (BC)
+	0x0B: func(c *CPU) { c.regs.SetBC(c.regs.GetBC() - 1) },                                                        // DEC BC
+	0x0C: func(c *CPU) { c.regs.C = c.inc8(c.regs.C) },                                                             // INC C
+	0x0D: func(c *CPU) { c.regs.C = c.dec8(c.regs.C) },                                                             // DEC C
+	0x0E: func(c *CPU) { c.regs.C = c.fetchu8() },                                                                  // LD C, d8
+	0x0F: func(c *CPU) {
+		c.flagC(c.regs.A&0x01 != 0)
+		c.regs.A = (c.regs.A >> 1) | (c.regs.A << 7)
+		c.flagZ(false)
+		c.flagN(false)
+		c.flagH(false)
+	}, // RRCA
 
 	// 0x1x
 	0x11: func(c *CPU) { c.regs.SetDE(c.fetchu16()) }, // LD DE, d16

@@ -43,3 +43,40 @@ func (r *Registers) SetHL(val uint16) {
 	r.L = uint8(val & 0xff)
 	r.H = uint8(val >> 8)
 }
+
+func (r *Registers) GetZ() bool { return r.F&0x80 != 0 }
+func (r *Registers) GetN() bool { return r.F&0x40 != 0 }
+func (r *Registers) GetH() bool { return r.F&0x20 != 0 }
+func (r *Registers) GetC() bool { return r.F&0x10 != 0 }
+
+func (r *Registers) SetZ(b bool) {
+	if b {
+		r.F |= 0x80
+	} else {
+		r.F &= ^byte(0x80)
+	}
+}
+
+func (r *Registers) SetN(b bool) {
+	if b {
+		r.F |= 0x40
+	} else {
+		r.F &= ^byte(0x40)
+	}
+}
+
+func (r *Registers) SetH(b bool) {
+	if b {
+		r.F |= 0x20
+	} else {
+		r.F &= ^byte(0x20)
+	}
+}
+
+func (r *Registers) SetC(b bool) {
+	if b {
+		r.F |= 0x80
+	} else {
+		r.F &= ^byte(0x80)
+	}
+}

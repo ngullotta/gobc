@@ -100,6 +100,29 @@ func (c *CPU) addHL(val uint16) {
 	c.regs.SetDE(uint16(res))
 }
 
+func (c *CPU) daa() {
+	a := int16(c.regs.A)
+	if !c.regs.GetN() {
+		if c.regs.GetC() || a > 0x99 {
+			a += 0x60
+			c.regs.SetC(true)
+		}
+		if c.regs.GetH() || (a&0x0F) > 0x09 {
+			a += 0x06
+		}
+	} else {
+		if c.regs.GetC() {
+			a -= 0x60
+		}
+		if c.regs.GetH() {
+			a -= 0x06
+		}
+	}
+	c.regs.A = byte(a)
+	c.regs.SetZ(c.regs.A == 0)
+	c.regs.SetH(false)
+}
+
 // Reference: https://www.pastraiser.com/cpu/gameboy/gameboy_opcodes.html
 var instructions = [0x100]func(*CPU){
 	// 0x00 => 0x0F
@@ -132,15 +155,71 @@ var instructions = [0x100]func(*CPU){
 		c.regs.SetH(false)
 	}, // RRCA
 
-	// 0x1x
-	0x11: func(c *CPU) { c.regs.SetDE(c.fetchu16()) }, // LD DE, d16
-	0x16: func(c *CPU) { c.regs.D = c.fetchu8() },     // LD D, d8
-	0x1E: func(c *CPU) { c.regs.E = c.fetchu8() },     // LD E, d8
+	// 0x10 => 0x1F
+	0x10: func(c *CPU) { c.fetchu8() /* STOP - skip next byte */ },
+	0x11: func(c *CPU) { c.regs.SetDE(c.fetchu16()) },            // LD DE, d16
+	0x12: func(c *CPU) { c.bus.Write(c.regs.GetDE(), c.regs.A) }, // LD (DE), A
+	0x13: func(c *CPU) { c.regs.SetDE(c.regs.GetDE() + 1) },      // INC DE
+	0x14: func(c *CPU) { c.regs.D = c.inc8(c.regs.D) },           // INC D
+	0x15: func(c *CPU) { c.regs.D = c.dec8(c.regs.D) },           // DEC D
+	0x16: func(c *CPU) { c.regs.D = c.fetchu8() },                // LD D, d8
+	0x17: func(c *CPU) {
+		carry := byte(0)
+		if c.regs.GetC() {
+			carry = 1
+		}
+		c.regs.SetC(c.regs.A&0x80 != 0)
+		c.regs.A = (c.regs.A << 1) | carry
+		c.regs.SetZ(false)
+		c.regs.SetN(false)
+		c.regs.SetH(false)
+	}, // RLA
+	0x18: func(c *CPU) { offset := int8(c.fetchu8()); c.PC = uint16(int32(c.PC) + int32(offset)) }, // JR r8
+	0x19: func(c *CPU) { c.addHL(c.regs.GetDE()) },                                                 // ADD HL, DE
+	0x1A: func(c *CPU) { c.regs.A = c.bus.Read(c.regs.GetDE()) },                                   // LD A, (DE)
+	0x1B: func(c *CPU) { c.regs.SetDE(c.regs.GetDE() - 1) },                                        // DEC DE
+	0x1C: func(c *CPU) { c.regs.E = c.inc8(c.regs.E) },                                             // INC E
+	0x1D: func(c *CPU) { c.regs.E = c.dec8(c.regs.E) },                                             // DEC E
+	0x1E: func(c *CPU) { c.regs.E = c.fetchu8() },                                                  // LD E, d8
+	0x1F: func(c *CPU) {
+		carry := byte(0)
+		if c.regs.GetC() {
+			carry = 0x80
+		}
+		c.regs.SetC(c.regs.A&0x01 != 0)
+		c.regs.A = (c.regs.A >> 1) | carry
+		c.regs.SetZ(false)
+		c.regs.SetN(false)
+		c.regs.SetH(false)
+	}, // RRA
 
-	// 0x2x
-	0x21: func(c *CPU) { c.regs.SetHL(c.fetchu16()) }, // LD HL, d16
-	0x26: func(c *CPU) { c.regs.H = c.fetchu8() },     // LD H, d8
-	0x2E: func(c *CPU) { c.regs.L = c.fetchu8() },     // LD L, d8
+	// 0x20 => 0x2F
+	0x20: func(c *CPU) {
+		offset := int8(c.fetchu8())
+		if !c.regs.GetZ() {
+			c.PC = uint16(int32(c.PC) + int32(offset))
+		}
+	}, // JR NZ, r8
+	0x21: func(c *CPU) { c.regs.SetHL(c.fetchu16()) },                                              // LD HL, d16
+	0x22: func(c *CPU) { c.bus.Write(c.regs.GetHL(), c.regs.A); c.regs.SetHL(c.regs.GetHL() + 1) }, // LDI (HL), A
+	0x23: func(c *CPU) { c.regs.SetHL(c.regs.GetHL() + 1) },                                        // INC HL
+	0x24: func(c *CPU) { c.regs.H = c.inc8(c.regs.H) },                                             // INC H
+	0x25: func(c *CPU) { c.regs.H = c.dec8(c.regs.H) },                                             // DEC H
+	0x26: func(c *CPU) { c.regs.H = c.fetchu8() },                                                  // LD H, d8
+	0x27: func(c *CPU) { c.daa() },                                                                 // DAA
+	0x28: func(c *CPU) {
+		offset := int8(c.fetchu8())
+		if c.regs.GetZ() {
+			c.PC = uint16(int32(c.PC) + int32(offset))
+		}
+	}, // JR Z, r8
+	0x29: func(c *CPU) { c.addHL(c.regs.GetHL()) },                                                 // ADD HL, HL
+	0x2A: func(c *CPU) { c.regs.A = c.bus.Read(c.regs.GetHL()); c.regs.SetHL(c.regs.GetHL() + 1) }, // LDI A, (HL)
+	0x2B: func(c *CPU) { c.regs.SetHL(c.regs.GetHL() - 1) },                                        // DEC HL
+	0x2C: func(c *CPU) { c.regs.L = c.inc8(c.regs.L) },                                             // INC L
+	0x2D: func(c *CPU) { c.regs.L = c.dec8(c.regs.L) },                                             // DEC L
+	0x2E: func(c *CPU) { c.regs.L = c.fetchu8() },                                                  // LD L, d8
+	0x2F: func(c *CPU) { c.regs.A = ^c.regs.A; c.regs.SetN(true); c.regs.SetH(true) },              // CPL
 
 	// 0x3x
 	0x31: func(c *CPU) { c.SP = c.fetchu16() },                 // LD SP, d16

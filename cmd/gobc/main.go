@@ -22,12 +22,8 @@ func main() {
 
 	fmt.Printf("Loaded Cart: %q\n", cpu.GetCartName())
 
-	// Debug stuff
-	gb.InitCPUInstructions()
-	cpu.Debug()
-
 	cpu.Play()
-	for range 32 {
+	for {
 		cpu.Step()
 	}
 }

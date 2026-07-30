@@ -1,6 +1,9 @@
 package gb
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 type MMU struct {
 	ROM  [0x8000]byte
@@ -17,6 +20,10 @@ func (m *MMU) Write(addr uint16, val byte) {
 		m.VRAM[addr-0x8000] = val
 	case addr >= 0xC000 && addr <= 0xDFFF: // WRAM
 		m.WRAM[addr-0xC000] = val
+	case addr == 0xFF01:
+		if val == 0x81 {
+			fmt.Printf("%v", m.HRAM[1])
+		}
 	case addr >= 0xFF80 && addr <= 0xFFFE: // HRAM
 		m.HRAM[addr-0xFF80] = val
 	}

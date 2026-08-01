@@ -3,6 +3,7 @@ package gb
 import (
 	"errors"
 	"fmt"
+	"os"
 )
 
 type MMU struct {
@@ -25,7 +26,7 @@ func (m *MMU) Write(addr uint16, val byte) {
 		m.IO[addr-0xFF00] = val
 
 		if addr == 0xFF02 && val == 0x81 {
-			fmt.Printf("%c", m.IO[0x01])
+			fmt.Fprintf(os.Stderr, "%c", m.IO[0x01]) // Write serial Data to stderr for now
 		}
 	case addr >= 0xFF80 && addr <= 0xFFFE: // HRAM
 		m.HRAM[addr-0xFF80] = val

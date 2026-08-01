@@ -22,7 +22,7 @@ func (m *MMU) Write(addr uint16, val byte) {
 		m.VRAM[addr-0x8000] = val
 	case addr >= 0xC000 && addr <= 0xDFFF: // WRAM
 		m.WRAM[addr-0xC000] = val
-	case addr >= 0xFF00 && addr <= 0xFF7F:
+	case addr >= 0xFF00 && addr <= 0xFF7F: // IO
 		m.IO[addr-0xFF00] = val
 
 		if addr == 0xFF02 && val == 0x81 {

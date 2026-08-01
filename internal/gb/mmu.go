@@ -28,6 +28,10 @@ func (m *MMU) Write(addr uint16, val byte) {
 		if addr == 0xFF02 && val == 0x81 {
 			fmt.Fprintf(os.Stderr, "%c", m.IO[0x01]) // Write serial Data to stderr for now
 		}
+
+		if addr == 0xFF04 {
+			m.IO[0x04] = 0 // RESET DIV
+		}
 	case addr >= 0xFF80 && addr <= 0xFFFE: // HRAM
 		m.HRAM[addr-0xFF80] = val
 	}

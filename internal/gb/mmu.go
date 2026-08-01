@@ -26,7 +26,9 @@ func (m *MMU) Write(addr uint16, val byte) {
 		m.IO[addr-0xFF00] = val
 
 		if addr == 0xFF02 && val == 0x81 {
-			fmt.Fprintf(os.Stderr, "%c", m.IO[0x01]) // Write serial Data to stderr for now
+			char := m.Read(0xFF01)
+			fmt.Fprintf(os.Stderr, "%c", char)
+			m.IO[0x2] = 0
 		}
 
 		if addr == 0xFF04 {

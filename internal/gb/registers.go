@@ -12,8 +12,7 @@ func (r *Registers) GetAF() uint16 {
 }
 
 func (r *Registers) SetAF(val uint16) {
-	val &= 0xFFF0 // The lower 4 bits are always zero, balme nintendo
-	r.F = uint8(val & 0xff)
+	r.F = uint8(val & 0xf0)
 	r.A = uint8(val >> 8)
 }
 
@@ -75,8 +74,8 @@ func (r *Registers) SetH(b bool) {
 
 func (r *Registers) SetC(b bool) {
 	if b {
-		r.F |= 0x80
+		r.F |= 0x10
 	} else {
-		r.F &= ^byte(0x80)
+		r.F &= ^byte(0x10)
 	}
 }

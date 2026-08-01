@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"gobc/internal/gb"
+	"math"
 	"os"
 )
 
@@ -23,7 +24,7 @@ func main() {
 	fmt.Printf("Loaded Cart: %q\n", cpu.GetCartName())
 
 	cpu.Play()
-	for {
+	for range int(math.Pow10(7)) {
 		cpu.Step()
 	}
 }

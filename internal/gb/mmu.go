@@ -6,6 +6,16 @@ import (
 	"os"
 )
 
+// Special registers
+const (
+	SB   = 0xFF01
+	SC   = 0xFF02
+	DIV  = 0xFF04
+	TIMA = 0xFF05
+	TMA  = 0xFF06
+	TAC  = 0xFF07
+)
+
 type MMU struct {
 	ROM  [0x8000]byte
 	VRAM [0x2000]byte
@@ -24,15 +34,19 @@ func (m *MMU) Write(addr uint16, val byte) {
 		m.WRAM[addr-0xC000] = val
 	case addr >= 0xFF00 && addr <= 0xFF7F: // IO
 		m.IO[addr-0xFF00] = val
-
-		if addr == 0xFF02 && val == 0x81 {
-			char := m.Read(0xFF01)
-			fmt.Fprintf(os.Stderr, "%c", char)
-			m.IO[0x2] = 0
+		switch addr {
+		case SC:
+			// Transfer requested
+			if val == 0x81 {
+				fmt.Fprintf(os.Stderr, "%c", m.Read(SB))
+				m.IO[SC-0xFF00] |= 0x80 // ack receipt by setting bit 7
+			}
+		case DIV:
+			m.IO[DIV-0xFF00] = 0 // RESET DIV
 		}
 
 		if addr == 0xFF04 {
-			m.IO[0x04] = 0 // RESET DIV
+			m.IO[addr-0xFF00] = 0 // RESET DIV
 		}
 	case addr >= 0xFF80 && addr <= 0xFFFE: // HRAM
 		m.HRAM[addr-0xFF80] = val

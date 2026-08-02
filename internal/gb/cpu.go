@@ -757,10 +757,15 @@ func (cpu *CPU) Step() int {
 		return 0
 	}
 
-	cycles := cpu.Exec(cpu.fetchu8())
+	op := cpu.fetchu8()
+	cycles := cpu.Exec(op) * 4
 	cpu.updateTimers(cycles)
 
 	return cycles
+}
+
+func (cpu *CPU) updateTimers(cycles int) {
+	return
 }
 
 func (cpu *CPU) Play() {
@@ -769,38 +774,6 @@ func (cpu *CPU) Play() {
 
 func (cpu *CPU) Debug() {
 	cpu.debug = !cpu.debug
-}
-
-func (cpu *CPU) updateTimers(cycles int) {
-	// Update DIV timer
-	cpu.div += cycles
-	if cpu.div >= 256 {
-		cpu.div -= 256
-		cpu.bus.IO[0x04]++
-	}
-
-	// Update TIMA timer
-	tac := cpu.bus.IO[0x07]
-	timerEnabled := tac&0x04 != 0
-
-	if timerEnabled {
-		cpu.tima += cycles
-
-		freq := tac & 0x03
-		cpt := [4]int{1024, 16, 64, 256}[freq]
-
-		for cpu.tima >= cpt {
-			cpu.tima -= cpt
-
-			tima := cpu.bus.IO[0x05]
-			if tima == 0xFF {
-				cpu.bus.IO[0x05] = cpu.bus.IO[0x06]
-				cpu.bus.IO[0x0F] |= 0x04 // Request Timer Interrupt
-			} else {
-				cpu.bus.IO[0x05] = tima + 1
-			}
-		}
-	}
 }
 
 // Not a permanent place for these, just need to expose them for main.go testing

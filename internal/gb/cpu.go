@@ -33,10 +33,9 @@ type CPU struct {
 
 	IME bool
 
-	halted bool
+	freq int
 
-	div  int
-	tima int
+	halted bool
 
 	debug bool
 }

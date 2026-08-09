@@ -21,7 +21,7 @@ import (
 // INOP  0xFEA0  0xFEFF (Unusable)
 // IO    0xFF00  0xFF7F (Hardware registers)
 // HRAM  0xFF80  0xFFFE (High RAM)
-// IE    0xFFFF  0xFFFF (Interrupt enable)
+// IE    0xFFFF  0xFFFF (Interrupt Flag)
 type MMU struct {
 	ROM   [0x8000]byte
 	VRAM  [0x2000]byte
@@ -30,7 +30,7 @@ type MMU struct {
 	OAM   [0xA0]byte
 	IO    [0x80]byte
 	HRAM  [0x80]byte
-	IE    bool
+	IF    bool
 }
 
 type Mode int
@@ -88,7 +88,7 @@ func (mmu *MMU) Init(mode Mode) error {
 	copy(mmu.EXRAM[:], empty[:0x2000])
 	copy(mmu.WRAM[:], empty[:0x2000])
 	copy(mmu.OAM[:], empty[:0x0A])
-	mmu.IE = false
+	mmu.IF = false
 
 	switch mode {
 	case DMG0:
@@ -121,20 +121,23 @@ func (mmu *MMU) Write(addr uint16, val byte) {
 	case addr >= 0xFE00 && addr <= 0xFE9F: // OAM
 		mmu.OAM[addr-0xFE00] = val
 	case addr >= 0xFF00 && addr <= 0xFF7F: // IO
-		mmu.IO[addr-0xFF00] = val
 		switch addr {
+		case SB:
+			mmu.IO[SC-0xFF00] |= 0x80
 		case SC:
-			// Transfer requested
 			if val == 0x81 {
 				fmt.Fprintf(os.Stderr, "%c", mmu.Read(SB))
-				mmu.IO[SC-0xFF00] |= 0x80 // ack receipt by setting bit 7
 			}
 		case DIV:
 			mmu.IO[DIV-0xFF00] = 0 // RESET DIV
-		}
-
-		if addr == 0xFF04 {
-			mmu.IO[addr-0xFF00] = 0 // RESET DIV
+		case TIMA:
+			mmu.IO[TIMA-0xFF00] = val
+		case TMA:
+			mmu.IO[TMA-0xFF00] = val
+		case TAC:
+			mmu.IO[TAC-0xFF00] = val | 0xF8
+		default:
+			mmu.IO[addr-0xFF00] = val
 		}
 	case addr >= 0xFF80 && addr <= 0xFFFE: // HRAM
 		mmu.HRAM[addr-0xFF80] = val
@@ -158,7 +161,7 @@ func (mmu *MMU) Read(addr uint16) byte {
 	case addr >= 0xFF80 && addr <= 0xFFFE: // HRAM
 		return mmu.HRAM[addr-0xFF80]
 	case addr == 0xFFFF: // Interrupt Enable
-		if mmu.IE {
+		if mmu.IF {
 			return 1
 		} else {
 			return 0

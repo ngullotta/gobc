@@ -14,7 +14,6 @@ type Gameboy struct {
 	cpu   *CPU
 	mmu   *MMU
 	cart  *Cart
-	mode  Mode
 	div   byte
 	timer int
 }
@@ -28,7 +27,7 @@ func (gb *Gameboy) Play() {
 	}
 }
 
-func NewGameboy(romPath string, mode Mode) (*Gameboy, error) {
+func NewGameboy(romPath string) (*Gameboy, error) {
 	file, err := os.Open(romPath)
 	if err != nil {
 		return nil, err
@@ -48,8 +47,7 @@ func NewGameboy(romPath string, mode Mode) (*Gameboy, error) {
 	}
 
 	mmu := &MMU{}
-	mmu.Init(mode)
-	mmu.LoadROM(data)
+	copy(mmu.ROM[:], data)
 
 	cpu := NewCPU()
 	cpu.Play()
@@ -58,7 +56,6 @@ func NewGameboy(romPath string, mode Mode) (*Gameboy, error) {
 		cpu:  cpu,
 		mmu:  mmu,
 		cart: cart,
-		mode: mode,
 	}
 
 	return gb, nil

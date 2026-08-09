@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	gb, err := gb.NewGameboy(os.Args[1], gb.DMG0)
+	gb, err := gb.NewGameboy(os.Args[1])
 	if err != nil {
 		panic(err)
 	}

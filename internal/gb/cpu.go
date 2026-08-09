@@ -2,7 +2,6 @@ package gb
 
 import (
 	"fmt"
-	"strings"
 )
 
 var OpCycles = []int{
@@ -773,24 +772,4 @@ func (cpu *CPU) Play() {
 
 func (cpu *CPU) Debug() {
 	cpu.debug = !cpu.debug
-}
-
-// Not a permanent place for these, just need to expose them for main.go testing
-func (cpu *CPU) LoadROM(data []byte) error {
-	return cpu.bus.LoadROM(data)
-}
-
-func (cpu *CPU) GetCartName() string {
-	rawTitle := string(cpu.bus.ROM[0x134:0x142])
-	return strings.Trim(rawTitle, "\x00")
-}
-
-func InitCPUInstructions() {
-	for k, v := range instructions {
-		if v == nil {
-			instructions[k] = func(*CPU) {
-				fmt.Printf("\033[31;1;4m")
-			}
-		}
-	}
 }

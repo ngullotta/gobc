@@ -1,6 +1,7 @@
 package gb
 
 import (
+	"fmt"
 	"os"
 	"strings"
 )
@@ -29,7 +30,7 @@ func (gb *Gameboy) Update() int {
 	cycles += cyclesOp
 
 	gb.updateTimers(cyclesOp)
-	gb.handleInterrupts(cyclesOp)
+	gb.handleInterrupts()
 
 	return cycles
 }
@@ -105,6 +106,18 @@ func (gb *Gameboy) updateTimers(cycles int) {
 	}
 }
 
-func (gb *Gameboy) handleInterrupts(cycles int) int {
+func (gb *Gameboy) handleInterrupts() int {
+	ime := gb.mmu.IME
+	req := gb.mmu.Read(IF)
+	if req > 0 {
+		for i := range 5 {
+			enabled := (ime>>i)&1 == 1
+			requested := (req>>i)&1 == 1
+			if enabled && requested {
+				fmt.Fprintf(os.Stderr, "Unhandled Interrupt")
+				return 20
+			}
+		}
+	}
 	return 0
 }

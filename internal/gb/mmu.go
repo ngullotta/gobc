@@ -47,13 +47,13 @@ const (
 func (mmu *MMU) writeIO(addr uint16, val byte) {
 	switch addr {
 	case SB:
-		mmu.IO[SC-0xFF00] |= 0x80
+		mmu.IO[addr-0xFF00] = val
 	case SC:
 		if val == 0x81 {
 			fmt.Fprintf(os.Stderr, "%c", mmu.Read(SB))
 		}
 	case DIV:
-		mmu.IO[DIV-0xFF00] = 0
+		mmu.IO[DIV-0xFF00] = val
 	case TIMA:
 		mmu.IO[TIMA-0xFF00] = val
 	case TMA:
@@ -64,6 +64,7 @@ func (mmu *MMU) writeIO(addr uint16, val byte) {
 		mmu.IO[IF-0xFF00] = val
 	default:
 		mmu.IO[addr-0xFF00] = val
+		fmt.Fprintf(os.Stderr, "Unhandled Write [IO]: 0x%X -> 0x%X\n", addr, val)
 	}
 }
 
@@ -84,6 +85,7 @@ func (mmu *MMU) Read(addr uint16) byte {
 	case addr >= 0xFF80 && addr <= 0xFFFE: // HRAM
 		return mmu.HRAM[addr-0xFF80]
 	default:
+		fmt.Fprintf(os.Stderr, "Unhandled Read: 0x%X\n", addr)
 		return 0xFF
 	}
 }
@@ -94,17 +96,25 @@ func (mmu *MMU) Write(addr uint16, val byte) {
 		return
 	case addr >= 0x8000 && addr <= 0x9FFF: // VRAM
 		mmu.VRAM[addr-0x8000] = val
+		return
 	case addr >= 0xA000 && addr <= 0xBFFF: // External RAM
 		mmu.EXRAM[addr-0xA000] = val
+		return
 	case addr >= 0xC000 && addr <= 0xDFFF: // WRAM
 		mmu.WRAM[addr-0xC000] = val
+		return
 	case addr >= 0xFE00 && addr <= 0xFE9F: // OAM
 		mmu.OAM[addr-0xFE00] = val
+		return
 	case addr >= 0xFF00 && addr <= 0xFF7F: // IO
 		mmu.writeIO(addr, val)
+		return
 	case addr >= 0xFF80 && addr <= 0xFFFE: // HRAM
 		mmu.HRAM[addr-0xFF80] = val
+		return
 	case addr == 0xFFFF: // IME
 		mmu.IME = val
+	default:
+		fmt.Fprintf(os.Stderr, "Unhandled Write: 0x%X -> 0x%X\n", addr, val)
 	}
 }

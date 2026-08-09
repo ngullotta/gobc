@@ -1,7 +1,6 @@
 package gb
 
 import (
-	"math"
 	"os"
 	"strings"
 )
@@ -11,19 +10,35 @@ type Cart struct {
 }
 
 type Gameboy struct {
-	cpu   *CPU
-	mmu   *MMU
-	cart  *Cart
-	div   byte
-	timer int
+	cpu     *CPU
+	mmu     *MMU
+	cart    *Cart
+	running bool
+	div     byte
+	timer   int
+}
+
+func (gb *Gameboy) Update() int {
+	if !gb.running {
+		return 0
+	}
+
+	cycles := 0
+	cyclesOp := 4
+	cyclesOp += gb.cpu.Step()
+	cycles += cyclesOp
+
+	gb.updateTimers(cyclesOp)
+	gb.handleInterrupts(cyclesOp)
+
+	return cycles
 }
 
 func (gb *Gameboy) GetCart() *Cart { return gb.cart }
 
 func (gb *Gameboy) Play() {
-	for range int(math.Pow10(9)) {
-		ncycles := gb.cpu.Step()
-		gb.updateTimers(ncycles)
+	for gb.running {
+		gb.Update()
 	}
 }
 
@@ -49,34 +64,47 @@ func NewGameboy(romPath string) (*Gameboy, error) {
 	mmu := &MMU{}
 	copy(mmu.ROM[:], data)
 
-	cpu := NewCPU()
-	cpu.Play()
+	cpu := NewCPU(mmu)
 
 	gb := &Gameboy{
-		cpu:  cpu,
-		mmu:  mmu,
-		cart: cart,
+		cpu:     cpu,
+		mmu:     mmu,
+		cart:    cart,
+		running: true,
+		div:     0,
+		timer:   0,
 	}
 
 	return gb, nil
 }
 
-func (gb *Gameboy) updateTimers(cycles int) {
+func (gb *Gameboy) updateDiv(cycles int) {
 	gb.div += byte(cycles)
-	gb.mmu.IO[0x3]++
-	clkEnable := (gb.mmu.IO[0x7] & 0x3) == 0
-	if clkEnable {
+	// Manually inc DIV in memory (write here resets to 0)
+	gb.mmu.IO[DIV-0xFF00]++
+}
+
+// https://gbdev.io/pandocs/Timer_and_Divider_Registers.html
+func (gb *Gameboy) updateTimers(cycles int) {
+	gb.updateDiv(cycles)
+
+	tac := gb.mmu.Read(TAC)
+	clkEnable := tac & 0x3
+	if clkEnable != 0 {
 		gb.timer += cycles
-		freq := int(gb.mmu.IO[0x07] & 0x3)
-		cpt := [4]int{1024, 16, 64, 256}[freq]
-		for gb.timer >= cpt {
-			gb.timer -= cpt
-			tima := gb.mmu.IO[0x05]
+		freq := [4]int{1024, 16, 64, 256}[clkEnable]
+		for gb.timer >= freq {
+			gb.timer -= freq
+			tima := gb.mmu.Read(TIMA)
 			if tima == 0xFF {
-				gb.mmu.Write(0xFF05, gb.mmu.Read(0xFF06))
+				gb.mmu.Write(TIMA, gb.mmu.Read(TMA))
 			} else {
-				gb.mmu.Write(0xFF05, tima+1)
+				gb.mmu.Write(TIMA, tima+1)
 			}
 		}
 	}
+}
+
+func (gb *Gameboy) handleInterrupts(cycles int) int {
+	return 0
 }

@@ -1,9 +1,5 @@
 package gb
 
-import (
-	"fmt"
-)
-
 var OpCycles = []int{
 	1, 3, 2, 2, 1, 1, 2, 1, 5, 2, 2, 2, 1, 1, 2, 1, // 0
 	0, 3, 2, 2, 1, 1, 2, 1, 3, 2, 2, 2, 1, 1, 2, 1, // 1
@@ -29,14 +25,6 @@ type CPU struct {
 
 	SP uint16
 	PC uint16
-
-	IME bool
-
-	freq int
-
-	halted bool
-
-	debug bool
 }
 
 var (
@@ -56,13 +44,12 @@ var (
 	}
 )
 
-func NewCPU() *CPU {
+func NewCPU(bus *MMU) *CPU {
 	return &CPU{
-		regs:   DMG,
-		bus:    &MMU{},
-		SP:     0xFFFE,
-		PC:     0x0100,
-		halted: true,
+		regs: DMG,
+		bus:  bus,
+		SP:   0xFFFE,
+		PC:   0x0100,
 	}
 }
 
@@ -514,7 +501,7 @@ var instructions = [0x100]func(*CPU){
 	0x73: func(c *CPU) { c.bus.Write(c.regs.GetHL(), c.regs.E) },
 	0x74: func(c *CPU) { c.bus.Write(c.regs.GetHL(), c.regs.H) },
 	0x75: func(c *CPU) { c.bus.Write(c.regs.GetHL(), c.regs.L) },
-	0x76: func(c *CPU) { c.halted = true }, // HALT
+	0x76: func(c *CPU) {}, // TODO: HALT
 	0x77: func(c *CPU) { c.bus.Write(c.regs.GetHL(), c.regs.A) },
 	0x78: func(c *CPU) { c.regs.A = c.regs.B },
 	0x79: func(c *CPU) { c.regs.A = c.regs.C },
@@ -674,7 +661,7 @@ var instructions = [0x100]func(*CPU){
 			c.PC = c.pop16()
 		}
 	}, // RET C
-	0xD9: func(c *CPU) { c.PC = c.pop16(); c.IME = true }, // RETI
+	0xD9: func(c *CPU) { c.PC = c.pop16(); c.bus.Write(0xFFF0, 1) }, // RETI
 	0xDA: func(c *CPU) {
 		addr := c.fetchu16()
 		if c.regs.GetC() {
@@ -716,7 +703,7 @@ var instructions = [0x100]func(*CPU){
 	0xF0: func(c *CPU) { c.regs.A = c.bus.Read(0xFF00 + uint16(c.fetchu8())) }, // LDH A, (a8)
 	0xF1: func(c *CPU) { c.regs.SetAF(c.pop16()) },                             // POP AF
 	0xF2: func(c *CPU) { c.regs.A = c.bus.Read(0xFF00 + uint16(c.regs.C)) },    // LD A, (C)
-	0xF3: func(c *CPU) { c.IME = false },                                       // DI
+	0xF3: func(c *CPU) { c.bus.Write(0xFFF0, 0) },                              // DI
 	0xF5: func(c *CPU) { c.push16(c.regs.GetAF()) },                            // PUSH AF
 	0xF6: func(c *CPU) { c.or8(c.fetchu8()) },                                  // OR d8
 	0xF7: func(c *CPU) { c.push16(c.PC); c.PC = 0x0030 },                       // RST 30H
@@ -731,45 +718,18 @@ var instructions = [0x100]func(*CPU){
 	}, // LD HL, SP+r8
 	0xF9: func(c *CPU) { c.SP = c.regs.GetHL() },               // LD SP, HL
 	0xFA: func(c *CPU) { c.regs.A = c.bus.Read(c.fetchu16()) }, // LD A, (a16)
-	0xFB: func(c *CPU) { c.IME = true },                        // EI
+	0xFB: func(c *CPU) { c.bus.Write(0xFFF0, 1) },              // EI
 	0xFE: func(c *CPU) { c.cp8(c.fetchu8()) },                  // CP d8
 	0xFF: func(c *CPU) { c.push16(c.PC); c.PC = 0x0038 },       // RST 38H
 }
 
 func (cpu *CPU) Exec(op byte) int {
-	if cpu.halted {
-		return 0
-	}
-
 	instructions[op](cpu)
-
-	if cpu.debug {
-		fmt.Printf("[*] PC = 0x%04X, OP = 0x%02X\033[0m\n", cpu.PC, op)
-	}
-
 	return OpCycles[op]
 }
 
 func (cpu *CPU) Step() int {
-	if cpu.halted {
-		return 0
-	}
-
 	op := cpu.fetchu8()
-	cycles := cpu.Exec(op) * 4
-	cpu.updateTimers(cycles)
-
-	return cycles
-}
-
-func (cpu *CPU) updateTimers(cycles int) {
-	return
-}
-
-func (cpu *CPU) Play() {
-	cpu.halted = !cpu.halted
-}
-
-func (cpu *CPU) Debug() {
-	cpu.debug = !cpu.debug
+	cycles := cpu.Exec(op)
+	return cycles * 4
 }
